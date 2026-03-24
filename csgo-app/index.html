@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CSGO 开黑报名助手 - 战场集结</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Black+Ops+One&display=swap');
+        .cs-font { font-family: 'Black Ops One', cursive; }
+        body { background-color: #09090b; color: #f4f4f5; font-family: system-ui, -apple-system, sans-serif; overflow-x: hidden; }
+        .glass { background: rgba(24, 24, 27, 0.95); backdrop-filter: blur(12px); border: 1px solid rgba(63, 63, 70, 0.5); }
+        .card-gradient { background: linear-gradient(145deg, #18181b, #09090b); }
+        input[type="time"]::-webkit-calendar-picker-indicator { filter: invert(1); }
+        @keyframes fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fade-in 0.5s ease-out forwards; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const App = () => {
+            // 记录当前用户是否已经报名（存储报名的ID）
+            const [myId, setMyId] = useState(() => localStorage.getItem('csgo_my_id') || '');
+            
+            const [participants, setParticipants] = useState(() => {
+                const saved = localStorage.getItem('csgo_squad_v2');
+                return saved ? JSON.parse(saved) : [];
+            });
+
+            const [name, setName] = useState('');
+            const [time, setTime] = useState('20:00');
+            const [role, setRole] = useState('突破位');
+            const [map, setMap] = useState('荒漠迷城');
+            const [error, setError] = useState('');
+
+            // 同步列表到本地存储
+            useEffect(() => {
+                localStorage.setItem('csgo_squad_v2', JSON.stringify(participants));
+            }, [participants]);
+
+            // 同步个人状态到本地存储
+            useEffect(() => {
+                localStorage.setItem('csgo_my_id', myId);
+            }, [myId]);
+
+            const handleJoin = () => {
+                const cleanName = name.trim();
+                
+                // 1. 基础校验
+                if (!cleanName) return;
+
+                // 2. 如果已经报名过，提示不能重复报名
+                if (myId && participants.some(p => p.id.toString() === myId)) {
+                    setError('你已经报名过了，请先撤销再重新加入');
+                    setTimeout(() => setError(''), 3000);
+                    return;
+                }
+
+                // 3. 校验名字是否重复
+                if (participants.some(p => p.name.toLowerCase() === cleanName.toLowerCase())) {
+                    setError('该 ID 已在队伍中！');
+                    setTimeout(() => setError(''), 3000);
+                    return;
+                }
+
+                // 4. 校验人数限制
+                if (participants.length >= 5) {
+                    setError('队伍已满（上限 5 人）');
+                    setTimeout(() => setError(''), 3000);
+                    return;
+                }
+
+                // 5. 执行报名
+                const newId = Date.now().toString();
+                setParticipants([...participants, { id: newId, name: cleanName, time, role, map }]);
+                setMyId(newId);
+                setName('');
+            };
+
+            const removePlayer = (id) => {
+                setParticipants(participants.filter(p => p.id !== id));
+                // 如果删除的是自己报的名，重置个人状态
+                if (id.toString() === myId) {
+                    setMyId('');
+                }
+            };
+
+            const clearAll = () => {
+                if (confirm('确定要清空整支队伍吗？')) {
+                    setParticipants([]);
+                    setMyId('');
+                }
+            };
+
+            // 判断当前设备是否已在队伍中
+            const amIInTeam = myId && participants.some(p => p.id.toString() === myId);
+
+            return (
+                <div className="min-h-screen flex flex-col items-center p-4 pb-20">
+                    <div className="text-center my-10 animate-fade-in">
+                        <h1 className="text-5xl font-black italic text-orange-500 cs-font tracking-tighter uppercase mb-2 drop-shadow-[0_0_20px_rgba(249,115,22,0.4)]">
+                            SQUAD UP
+                        </h1>
+                        <p className="text-zinc-500 text-[10px] font-bold tracking-[0.4em] uppercase">Tactical Deployment</p>
+                    </div>
+
+                    <div className="w-full max-w-md glass rounded-[2.5rem] p-6 shadow-2xl mb-8 card-gradient animate-fade-in">
+                        <div className="space-y-4">
+                            {error && (
+                                <div className="text-red-500 text-[10px] font-black text-center uppercase tracking-widest animate-bounce">
+                                    <i className="fa-solid fa-triangle-exclamation mr-1"></i> {error}
+                                </div>
+                            )}
+                            
+                            {amIInTeam ? (
+                                <div className="bg-orange-500/10 border border-orange-500/30 p-4 rounded-2xl text-center">
+                                    <p className="text-orange-500 text-xs font-black uppercase tracking-widest">
+                                        你已在作战序列中
+                                    </p>
+                                    <p className="text-zinc-500 text-[10px] mt-1">如需更改信息，请先在下方移除自己</p>
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="flex items-center gap-3 bg-black/40 p-4 rounded-2xl border border-zinc-700 focus-within:border-orange-500 transition-all">
+                                        <i className="fa-solid fa-id-card text-orange-500"></i>
+                                        <input 
+                                            className="bg-transparent outline-none w-full font-bold text-white placeholder-zinc-700" 
+                                            placeholder="输入玩家 ID..." 
+                                            value={name} 
+                                            onChange={e => setName(e.target.value)} 
+                                        />
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="bg-black/40 p-3 rounded-2xl border border-zinc-700 flex items-center gap-2">
+                                            <i className="fa-regular fa-clock text-zinc-500"></i>
+                                            <input type="time" className="bg-transparent outline-none text-xs text-white w-full" value={time} onChange={e => setTime(e.target.value)} />
+                                        </div>
+                                        <div className="bg-black/40 p-3 rounded-2xl border border-zinc-700 flex items-center gap-2">
+                                            <i className="fa-solid fa-crosshairs text-zinc-500"></i>
+                                            <select className="bg-transparent outline-none text-xs text-white w-full" value={role} onChange={e => setRole(e.target.value)}>
+                                                {["突破位", "狙击手", "自由人", "指挥官", "辅助位"].map(r => <option key={r} value={r} className="bg-zinc-900">{r}</option>)}
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <button 
+                                        onClick={handleJoin} 
+                                        className="w-full py-4 bg-orange-600 hover:bg-orange-500 text-white rounded-2xl font-black uppercase tracking-widest shadow-[0_4px_0_#9a3412] active:translate-y-1 active:shadow-none transition-all"
+                                    >
+                                        确认入队
+                                    </button>
+                                </>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="w-full max-w-md space-y-4 animate-fade-in" style={{animationDelay: '0.2s'}}>
+                        <div className="flex justify-between items-center px-2">
+                            <h2 className="font-black text-xl uppercase italic">战斗小组 <span className="text-orange-500">[{participants.length}/5]</span></h2>
+                            <button onClick={clearAll} className="text-zinc-700 text-[10px] font-bold hover:text-red-500 uppercase transition-colors">
+                                <i className="fa-solid fa-trash-can mr-1"></i> 全部清空
+                            </button>
+                        </div>
+                        
+                        <div className="space-y-3">
+                            {participants.length === 0 ? (
+                                <div className="py-12 border-2 border-dashed border-zinc-900 rounded-[2rem] text-center text-zinc-800 font-black text-[10px] uppercase tracking-widest">
+                                    等待响应...
+                                </div>
+                            ) : (
+                                participants.map((p, i) => (
+                                    <div 
+                                        key={p.id} 
+                                        className={`flex items-center gap-4 p-4 rounded-2xl border transition-all group ${p.id.toString() === myId ? 'bg-orange-500/10 border-orange-500/50' : 'bg-zinc-900/60 border-zinc-800 hover:border-zinc-600'}`}
+                                    >
+                                        <div className={`w-10 h-10 flex items-center justify-center rounded-xl font-black border ${p.id.toString() === myId ? 'bg-orange-500 text-black border-orange-400' : 'bg-zinc-800 text-orange-500 border-zinc-700'}`}>
+                                            {i + 1}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="font-black text-lg uppercase flex items-center gap-2 truncate">
+                                                {p.name}
+                                                {i === 0 && <span className="text-[8px] bg-white text-black px-1 rounded-sm tracking-tighter font-black">LEADER</span>}
+                                                {p.id.toString() === myId && <span className="text-[8px] bg-orange-500 text-white px-1 rounded-sm tracking-tighter">YOU</span>}
+                                            </div>
+                                            <div className="text-[10px] font-bold text-zinc-500 uppercase flex gap-3">
+                                                <span className="flex items-center gap-1"><i className="fa-solid fa-shield-halved text-[8px]"></i> {p.role}</span>
+                                                <span className="flex items-center gap-1"><i className="fa-regular fa-clock text-[8px]"></i> {p.time}</span>
+                                            </div>
+                                        </div>
+                                        <button 
+                                            onClick={() => removePlayer(p.id)} 
+                                            className="text-zinc-700 hover:text-red-500 transition-colors p-2"
+                                            title="移除"
+                                        >
+                                            <i className="fa-solid fa-xmark text-xl"></i>
+                                        </button>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
